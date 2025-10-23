@@ -21,7 +21,7 @@
       background:var(--card);border:1px solid #232835;border-radius:16px;
       padding:16px;box-shadow:0 8px 20px rgba(0,0,0,.22)
     }
-    h1{margin:0 0 10px;font-size:20px;line-height:1.25}
+    h1{margin:0 0 8px;font-size:20px;line-height:1.25}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .grow{flex:1}
     .progress{height:8px;background:#0c0f14;border-radius:999px;overflow:hidden}
@@ -52,7 +52,9 @@
     th{color:var(--muted);font-weight:600}
     .ok{color:var(--good)} .no{color:var(--bad)}
     .hidden{display:none}
-
+    .tiny{font-size:12px;color:var(--muted)}
+    .status{margin-top:8px;font-size:14px;color:var(--muted)}
+    .linklike{background:none;border:none;color:var(--accent);cursor:pointer;padding:0}
     @media (max-width: 520px){
       .wrap{padding:12px}
       h1{font-size:18px}
@@ -64,8 +66,61 @@
     }
   </style>
   <script>
-    const shuffle = (arr) => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; };
-    const sample = (arr, k) => shuffle(arr).slice(0,k);
+    // ========= Конфиг статистики =========
+    const APP_VERSION = "mobile-plain-stats@1.0.0";
+    const STATS_MODE = "supabase"; // "supabase" | "custom" | "none"
+
+    // --- ВАШ Supabase (Settings → API) ---
+    const SUPABASE_URL  = "https://yifkowufwjehwwnrnhvz.supabase.co";
+    const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZmtvd3Vmd2plaHd3bnJuaHZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyNDAzODksImV4cCI6MjA3NjgxNjM4OX0.EG2Bj3892hUBXjoDc4LYFtz28Q7_uDtGd-UJXOmcmac";
+    const SUPABASE_TABLE = "attempts";
+
+    // для собственного сервера (будущее)
+    const CUSTOM_ENDPOINT = ""; // "https://your.server/api/attempts"
+    const CUSTOM_AUTH = "";     // "Bearer <token>" при необходимости
+
+    const QUEUE_KEY = "pendingAttemptsV1";
+    const STUDENT_KEY = "studentIdV1";
+
+    function isSupabaseConfigured(){
+      return Boolean(SUPABASE_URL && SUPABASE_ANON);
+    }
+    // =====================================
+
+    // ========= Утилиты =========
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+    function uuidv4(){
+      const buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      buf[6] = (buf[6] & 0x0f) | 0x40;
+      buf[8] = (buf[8] & 0x3f) | 0x80;
+      const toHex = (n) => n.toString(16).padStart(2,"0");
+      const b = Array.from(buf, toHex).join("");
+      return `${b.slice(0,8)}-${b.slice(8,12)}-${b.slice(12,16)}-${b.slice(16,20)}-${b.slice(20)}`;
+    }
+
+    // FNV-1a 32-bit
+    function fnv1aHash(str){
+      let h = 0x811c9dc5;
+      for (let i=0;i<str.length;i++){
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
+      return (h>>>0).toString(16);
+    }
+
+    // seeded RNG (mulberry32)
+    function mulberry32(seed){
+      return function(){
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
     const fmtTime = (ms) => {
       const t = Math.max(0, Math.round(ms));
       const m = Math.floor(t/60000);
@@ -73,53 +128,74 @@
       const cs = Math.floor((t%1000)/10);
       return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
     };
+    // ===========================
 
-    // 12 вопросов (три исключены ранее)
+    // ========= Банк вопросов (12), с QID и темой =========
     const BANK = [
-      { stem:"Объём цилиндра равен",
+      { qid:"cyl_vol", topic:"цилиндр", stem:"Объём цилиндра равен",
         opts:["πrh²","2πr²h","πr²h","1/3·πr²h","2πrh","πr(h + r)","4/3·πr³","2πr² + 2πrh"],
         correct:2 },
-      { stem:"Полная площадь поверхности цилиндра равна",
+      { qid:"cyl_area_total", topic:"цилиндр", stem:"Полная площадь поверхности цилиндра равна",
         opts:["2πrh + 2πr²","πr²h","2πrh","πr(h + r)","πr² + πrh","4πr²","2πr(h + 2r)","πr² + 2πr"],
         correct:0 },
-      { stem:"Объём цилиндра через площадь основания Sосн:",
+      { qid:"cyl_vol_from_S", topic:"цилиндр", stem:"Объём цилиндра через площадь основания Sосн:",
         opts:["V = Sосн·h","V = 2Sосн·h","V = 1/3·Sосн·h","V = Sосн·2h","V = Sосн/(2h)","V = 4/3·Sосн·h","V = Sосн·πh","V = Sосн + h"],
         correct:0 },
-      { stem:"Полная площадь поверхности цилиндра через Sосн:",
+      { qid:"cyl_area_from_S", topic:"цилиндр", stem:"Полная площадь поверхности цилиндра через Sосн:",
         opts:["Sполн = 2Sосн + 2πrh","Sполн = Sосн + 2πrh","Sполн = 2Sосн + πrh","Sполн = 2Sосн + Pосн·h","Sполн = Sосн + πr²","Sполн = 4Sосн","Sполн = 2Sосн + 2πr²h","Sполн = 2πr(h + r)"],
         correct:0 },
-      { stem:"Объём конуса равен",
+      { qid:"cone_vol", topic:"конус", stem:"Объём конуса равен",
         opts:["πr²h","1/2·πr²h","1/3·πr²h","2/3·πr²h","πrl","4/3·πr³","πr(h + l)","2πrh"],
         correct:2 },
-      { stem:"Полная площадь поверхности конуса равна",
+      { qid:"cone_area_total", topic:"конус", stem:"Полная площадь поверхности конуса равна",
         opts:["πrl + πr²","2πrl + πr²","πr(l + h)","πr²h","2πr(h + r)","πr² + 2πrh","πr(l + r/2)","4πr²"],
         correct:0 },
-      { stem:"Объём конуса через площадь основания Sосн:",
-        opts:["V = Sосн·h","V = 1/2·Sосн·h","V = 1/3·Sосн·h","V = 2/3·Sосн·h","V = Sосн·2h","V = Sосн/(3h)","V = 4/3·Sосн·h","V = Sосн + h"],
+      { qid:"cone_vol_from_S", topic:"конус", stem:"Объём конуса через площадь основания Sосн:",
+        opts:["V = Sосн·h","V = 1/2·Sосн·h","V = 1/3·Sосн·h","V = 2/3·Сосн·h","V = Sосн·2h","V = Sосн/(3h)","V = 4/3·Sосн·h","V = Sосн + h"],
         correct:2 },
-      { stem:"Полная площадь поверхности конуса через Sосн и l:",
+      { qid:"cone_area_from_Sl", topic:"конус", stem:"Полная площадь поверхности конуса через Sосн и l:",
         opts:["Sполн = Sосн + πrl","Sполн = 2Sосн + πrl","Sполн = Sосн + 2πrl","Sполн = πrl","Sполн = Sосн + πr²l","Sполн = 2πr(h + r)","Sполн = Sосн + πrh","Sполн = 4πr²"],
         correct:0 },
-      { stem:"Объём прямой треугольной призмы равен",
+      { qid:"prism_vol", topic:"призма", stem:"Объём прямой треугольной призмы равен",
         opts:["V = Pосн·h","V = Sосн·h","V = 1/2·Pосн·h","V = 2Sосн·h","V = Sосн/(2h)","V = (Sосн + Pосн)·h","V = πr²h","V = 4/3·πr³"],
         correct:1 },
-      { stem:"Площадь поверхности шара равна",
+      { qid:"sphere_area", topic:"шар", stem:"Площадь поверхности шара равна",
         opts:["2πr²","3πr²","4πr²","4/3·πr³","πr²h","2πrh","πrl + πr²","8πr²"],
         correct:2 },
-      { stem:"Объём шара равен",
+      { qid:"sphere_vol", topic:"шар", stem:"Объём шара равен",
         opts:["4πr³","4/3·πr³","1/3·πr³","πr³","πr²h","2/3·πr³","2πr³","4πr²"],
         correct:1 },
-      { stem:"Выберите единственную верную пару (S, V) для шара:",
-        opts:["S = 2πr², V = 4/3·πr³","S = 3πr², V = πr³","S = 4πr², V = 4/3·πr³","S = 4πr², V = πr³","S = 2πr², V = 2/3·πr³","S = 4πr², V = 2πр³","S = πr², V = 4/3·πr³","S = 4πr², V = 1/3·πr³"],
+      { qid:"sphere_pair", topic:"шар", stem:"Выберите единственную верную пару (S, V) для шара:",
+        opts:["S = 2πr², V = 4/3·πr³","S = 3πr², V = πr³","S = 4πr², V = 4/3·πr³","S = 4πr², V = πр³","S = 2πr², V = 2/3·πr³","S = 4πr², V = 2πr³","S = πr², V = 4/3·πr³","S = 4πr², V = 1/3·πr³"],
         correct:2 }
     ];
+    const BANK_HASH = fnv1aHash(JSON.stringify(BANK.map(q=>({qid:q.qid,stem:q.stem,opts:q.opts,correct:q.correct}))));
 
+    // ========= RNG helpers using seed =========
+    let rng = null;
+    let seed = 0;
+    function seededRandom(){
+      return rng ? rng() : Math.random();
+    }
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i=a.length-1;i>0;i--){
+        const j = Math.floor(seededRandom()*(i+1));
+        [a[i],a[j]]=[a[j],a[i]];
+      }
+      return a;
+    }
+    function sample(arr,k){ return shuffle(arr).slice(0,k); }
+    // ==========================================
+
+    // ========= Состояние квиза =========
     let questions = [];
     let cur = 0;
     let answers = [];
     let times = [];
     let startStamp = null;
     let rafId = null;
+    let sessionStartedAt = null;
 
     function materialize(bank){
       return bank.map(q => {
@@ -128,15 +204,25 @@
         const picked = sample(wrongIdx, 3);
         const choiceIdxs = shuffle([q.correct, ...picked]);
         const correctRendered = choiceIdxs.indexOf(q.correct);
-        return { stem:q.stem, opts:q.opts, choiceIdxs, correctRendered };
+        return {
+          qid:q.qid, topic:q.topic, stem:q.stem, opts:q.opts,
+          choiceIdxs, correctRendered
+        };
       });
     }
 
     function prepare() {
+      // инициализация seed для воспроизводимости
+      const buf = new Uint32Array(1);
+      crypto.getRandomValues(buf);
+      seed = buf[0] >>> 0;
+      rng = mulberry32(seed);
+
       questions = materialize(shuffle(BANK));
       cur = 0;
       answers = new Array(questions.length).fill(null);
       times = new Array(questions.length).fill(0);
+      sessionStartedAt = new Date();
       render();
       startTimer();
     }
@@ -154,7 +240,7 @@
         if (!step._acc) step._acc = 0;
         step._acc += dt;
         if (step._acc >= 200){
-          document.querySelector(".timer").textContent = fmtTime(times[cur]);
+          $(".timer").textContent = fmtTime(times[cur]);
           step._acc = 0;
         }
         rafId = requestAnimationFrame(step);
@@ -172,13 +258,11 @@
     function render() {
       const total = questions.length;
       const q = questions[cur];
-      document.getElementById("qnum").textContent = `Вопрос ${cur+1} / ${total}`;
-      document.querySelector(".progress > span").style.width = `${((cur)/total*100).toFixed(2)}%`;
+      $("#qnum").textContent = `Вопрос ${cur+1} / ${total}`;
+      $(".progress > span").style.width = `${((cur)/total*100).toFixed(2)}%`;
 
-      const qt = document.querySelector(".qtext");
-      qt.textContent = q.stem;
-
-      const box = document.querySelector(".opts");
+      $(".qtext").textContent = q.stem;
+      const box = $(".opts");
       box.innerHTML = "";
       q.choiceIdxs.forEach((origIdx, i) => {
         const id = `opt_${cur}_${i}`;
@@ -197,8 +281,8 @@
         box.appendChild(div);
       });
 
-      document.getElementById("prev").disabled = (cur===0);
-      document.getElementById("next").disabled = (cur>=questions.length-1);
+      $("#prev").disabled = (cur===0);
+      $("#next").disabled = (cur>=questions.length-1);
     }
 
     function goto(n) {
@@ -207,7 +291,132 @@
       render();
     }
 
-    function finish() {
+    // ========= Очередь оффлайн =========
+    function loadQueue(){
+      try{
+        return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+      }catch(e){ return []; }
+    }
+    function saveQueue(arr){
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(arr));
+    }
+    async function trySendQueued(item){
+      try{
+        if (item.transport === "supabase"){
+          await sendToSupabase(item.payload);
+        } else if (item.transport === "custom"){
+          await sendToCustom(item.payload);
+        } else {
+          throw new Error("Unknown transport");
+        }
+        return true;
+      }catch(e){
+        return false;
+      }
+    }
+    async function flushQueue(){
+      const now = Date.now();
+      let q = loadQueue();
+      let changed = false;
+      for (let i=0;i<q.length;i++){
+        const item = q[i];
+        if (item.nextTryAt && item.nextTryAt > now) continue;
+        const ok = await trySendQueued(item);
+        if (ok){
+          q.splice(i,1); i--; changed = true;
+        }else{
+          item.tries = (item.tries||0)+1;
+          const backoff = Math.min(600000, 2000 * Math.pow(2, Math.min(item.tries, 7)));
+          item.nextTryAt = now + backoff;
+          changed = true;
+        }
+      }
+      if (changed) saveQueue(q);
+      return q.length;
+    }
+    function enqueueAttempt(transport, payload){
+      const q = loadQueue();
+      q.push({transport, payload, tries:0, nextTryAt:Date.now()});
+      saveQueue(q);
+    }
+    // ===================================
+
+    // ========= Отправка попытки =========
+    async function sendToSupabase(payload){
+      const url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(SUPABASE_TABLE)}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON,
+          Authorization: `Bearer ${SUPABASE_ANON}`,
+          Prefer: "return=representation"
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok){
+        const txt = await res.text().catch(()=>String(res.status));
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+    async function sendToCustom(payload){
+      const res = await fetch(CUSTOM_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(CUSTOM_AUTH ? {Authorization: CUSTOM_AUTH} : {})
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok){
+        const txt = await res.text().catch(()=>String(res.status));
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+    async function sendAttempt(transport, payload){
+      if (transport === "supabase"){
+        if (!isSupabaseConfigured()) throw new Error("Supabase is not configured");
+        return sendToSupabase(payload);
+      } else if (transport === "custom"){
+        if (!CUSTOM_ENDPOINT) throw new Error("Custom endpoint is not configured");
+        return sendToCustom(payload);
+      } else {
+        throw new Error("Stats disabled");
+      }
+    }
+    // =====================================
+
+    function buildSummary(rows, correctCount, total, totalMs){
+      return {
+        attempt_key: uuidv4(),
+        student_id: "", // заполним ниже
+        started_at: sessionStartedAt.toISOString(),
+        finished_at: new Date().toISOString(),
+        score: correctCount,
+        total: total,
+        duration_ms: Math.round(totalMs),
+        seed: seed|0,
+        bank_hash: BANK_HASH,
+        app_version: APP_VERSION,
+        ua: navigator.userAgent,
+        page_url: location.href,
+        answers: rows.map(r => ({
+          qid: r.qid,
+          topic: r.topic,
+          idx: r.idx,
+          stem: r.stem,
+          options_presented: r.optionsPresented,
+          correct: r.correctText,
+          selected: r.yourText === "—" ? null : r.yourText,
+          ok: r.ok,
+          time_ms: Math.round(r.time)
+        }))
+      };
+    }
+
+    async function finish() {
       stopTimer();
       const total = questions.length;
       let correctCount = 0;
@@ -217,20 +426,26 @@
         const sel = answers[i];
         const ok = sel===q.correctRendered;
         if (ok) correctCount++;
+        const presented = q.choiceIdxs.map(k => q.opts[k]);
         const correctText = q.opts[q.choiceIdxs[q.correctRendered]];
         const yourText = (sel==null) ? "—" : q.opts[q.choiceIdxs[sel]];
-        rows.push({idx:i, stem:q.stem, yourText, correctText, ok, time:times[i]});
+        rows.push({
+          idx:i, qid:q.qid, topic:q.topic, stem:q.stem,
+          optionsPresented: presented,
+          yourText, correctText, ok, time:times[i]
+        });
       }
       const totalMs = times.reduce((a,b)=>a+b,0);
       const avgMs = totalMs/total;
 
-      document.getElementById("quiz").classList.add("hidden");
-      document.getElementById("report").classList.remove("hidden");
-      document.getElementById("score").textContent = `${correctCount} из ${total} (${Math.round(100*correctCount/total)}%)`;
-      document.getElementById("totaltime").textContent = fmtTime(totalMs);
-      document.getElementById("avgtime").textContent = fmtTime(avgMs);
+      // UI отчёта
+      $("#quiz").classList.add("hidden");
+      $("#report").classList.remove("hidden");
+      $("#score").textContent = `${correctCount} из ${total} (${Math.round(100*correctCount/total)}%)`;
+      $("#totaltime").textContent = fmtTime(totalMs);
+      $("#avgtime").textContent = fmtTime(avgMs);
 
-      const tbody = document.getElementById("tbody");
+      const tbody = $("#tbody");
       tbody.innerHTML = "";
       rows.forEach((r) => {
         const tr = document.createElement("tr");
@@ -244,25 +459,77 @@
         `;
         tbody.appendChild(tr);
       });
+
+      // Статус отправки
+      const status = $("#sendstatus");
+      status.textContent = "Сохранение результата…";
+
+      // Конфиг транспорта
+      let transport = STATS_MODE;
+      if (transport === "supabase" && !isSupabaseConfigured()) transport = "none";
+      if (transport === "custom" && !CUSTOM_ENDPOINT) transport = "none";
+
+      // Учебный код ученика
+      let studentId = localStorage.getItem(STUDENT_KEY);
+      if (!studentId){
+        studentId = prompt("Введите ваш код/инициалы:");
+        if (studentId) {
+          studentId = String(studentId).trim();
+          localStorage.setItem(STUDENT_KEY, studentId);
+        }
+      }
+
+      const summary = buildSummary(rows, correctCount, total, totalMs);
+      summary.student_id = studentId || "";
+
+      if (transport === "none"){
+        status.textContent = "Сохранение не настроено.";
+        return;
+      }
+      if (!summary.student_id){
+        status.textContent = "Код ученика не указан — статистика не отправлена.";
+        return;
+      }
+
+      try{
+        await sendAttempt(transport, summary);
+        status.textContent = "✅ Отправлено";
+      }catch(e){
+        enqueueAttempt(transport, summary);
+        status.textContent = "⚠️ Нет сети или ошибка сервера — отправим позже.";
+      }
     }
 
     function restart() {
-      document.getElementById("report").classList.add("hidden");
-      document.getElementById("quiz").classList.remove("hidden");
-      document.querySelector(".progress > span").style.width = "0%";
+      $("#report").classList.add("hidden");
+      $("#quiz").classList.remove("hidden");
+      $(".progress > span").style.width = "0%";
       times = new Array(questions.length).fill(0);
       answers = new Array(questions.length).fill(null);
-      questions = materialize(shuffle(BANK));
-      cur = 0;
-      render();
-      startTimer();
+      // новый seed и порядок
+      prepare();
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("next").addEventListener("click", ()=>goto(cur+1), {passive:true});
-      document.getElementById("prev").addEventListener("click", ()=>goto(cur-1), {passive:true});
-      document.getElementById("finish").addEventListener("click", finish, {passive:true});
-      document.getElementById("restart").addEventListener("click", restart, {passive:true});
+    function changeStudent(){
+      const cur = localStorage.getItem(STUDENT_KEY) || "";
+      const v = prompt("Введите код/инициалы ученика", cur);
+      if (v===null) return;
+      const val = String(v).trim();
+      if (val) localStorage.setItem(STUDENT_KEY, val);
+      else localStorage.removeItem(STUDENT_KEY);
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      $("#next").addEventListener("click", ()=>goto(cur+1), {passive:true});
+      $("#prev").addEventListener("click", ()=>goto(cur-1), {passive:true});
+      $("#finish").addEventListener("click", finish, {passive:true});
+      $("#restart").addEventListener("click", restart, {passive:true});
+      $("#changeStudent").addEventListener("click", changeStudent, {passive:true});
+
+      // Фоновая отправка очереди
+      flushQueue();
+      setInterval(flushQueue, 30000);
+
       prepare();
     });
   </script>
@@ -270,7 +537,10 @@
 <body>
   <div class="wrap">
     <div class="card" id="quiz">
-      <h1>Тренажер по формулам стереометрии</h1>
+      <div class="row">
+        <h1 class="grow">Тренажер по формулам стереометрии</h1>
+        <button id="changeStudent" class="linklike tiny" title="Сменить ученика">Сменить ученика</button>
+      </div>
       <div class="row">
         <div id="qnum" class="grow"></div>
         <div class="timer">00:00.00</div>
@@ -310,10 +580,19 @@
           <tbody id="tbody"></tbody>
         </table>
       </div>
+      <div class="status" id="sendstatus"> </div>
       <div class="btns">
         <button id="restart" class="primary">Перезапустить</button>
       </div>
+      <div class="tiny">Версия: <span id="ver"></span></div>
     </div>
   </div>
+  <script>
+    // показать версию в отчёте
+    document.addEventListener("DOMContentLoaded", ()=>{
+      const el = document.getElementById("ver");
+      if (el) el.textContent = APP_VERSION + " · банк " + BANK_HASH.slice(0,8);
+    });
+  </script>
 </body>
 </html>
