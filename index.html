@@ -8,6 +8,7 @@
     :root {
       --bg:#0f1115; --card:#171a21; --text:#e7eaf0; --muted:#9aa3b2;
       --accent:#4da3ff; --good:#38d39f; --bad:#ff6b6b;
+      --border:#232835;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -18,23 +19,19 @@
     }
     .wrap{max-width:900px;margin:0 auto;padding:16px}
     .card{
-      background:var(--card);border:1px solid #232835;border-radius:16px;
+      background:var(--card);border:1px solid var(--border);border-radius:16px;
       padding:16px;box-shadow:0 8px 20px rgba(0,0,0,.22)
     }
     h1{margin:0 0 8px;font-size:20px;line-height:1.25}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .grow{flex:1}
-    .progress{height:8px;background:#0c0f14;border-radius:999px;overflow:hidden}
-    .progress > span{display:block;height:100%;background:var(--accent);width:0%}
     .qtext{font-size:18px;line-height:1.4;margin:14px 0 6px;word-break:break-word}
     .opts{display:grid;gap:10px;margin:10px 0}
     .opt{
-      padding:14px;background:#11141a;border:1px solid #232835;border-radius:12px;
+      padding:14px;background:#11141a;border:1px solid var(--border);border-radius:12px;
       cursor:pointer;display:flex;gap:10px;align-items:flex-start
     }
-    .opt input{
-      width:22px;height:22px;margin-top:1px;flex:0 0 auto;
-    }
+    .opt input{width:22px;height:22px;margin-top:1px;flex:0 0 auto;}
     .opt .txt{line-height:1.35;word-break:break-word}
     .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
     button{
@@ -44,17 +41,27 @@
     }
     button.primary{background:var(--accent);border-color:transparent;color:#07131f}
     button.ghost{background:transparent}
+    button.linklike{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;min-width:0}
     button:disabled{opacity:.5;cursor:not-allowed}
     .timer{font-variant-numeric:tabular-nums}
-    .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #232835;border-radius:12px;margin-top:10px}
+    .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:12px;margin-top:10px}
     table{width:100%;border-collapse:collapse;min-width:720px}
-    th,td{border-bottom:1px solid #232835;padding:10px 8px;text-align:left;vertical-align:top}
+    th,td{border-bottom:1px solid var(--border);padding:10px 8px;text-align:left;vertical-align:top}
     th{color:var(--muted);font-weight:600}
     .ok{color:var(--good)} .no{color:var(--bad)}
     .hidden{display:none}
     .tiny{font-size:12px;color:var(--muted)}
     .status{margin-top:8px;font-size:14px;color:var(--muted)}
-    .linklike{background:none;border:none;color:var(--accent);cursor:pointer;padding:0}
+    .head-mini{font-size:14px;color:var(--muted)}
+    /* Modal */
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(0,0,0,.55);
+      display:flex;align-items:center;justify-content:center;padding:16px;z-index:50
+    }
+    .modal{max-width:560px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+    .chkrow{display:flex;gap:10px;align-items:center;margin:6px 0}
+    .chkrow input{width:20px;height:20px}
+    .muted{color:var(--muted)}
     @media (max-width: 520px){
       .wrap{padding:12px}
       h1{font-size:18px}
@@ -64,7 +71,9 @@
       .btns button{flex:1}
       table{min-width:640px}
     }
-  </style>
+    /* fix: ensure modal hides when .hidden is present */
+  .modal-backdrop.hidden { display: none !important; }
+</style>
 
   <!-- MathJax v3 -->
   <script>
@@ -82,7 +91,7 @@
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 
   <script>
-    const APP_VERSION = "mobile-mathjax@1.1.0-14q";
+    const APP_VERSION = "infinite-topics@1.1.0-14q-toggle";
     const STATS_MODE = "supabase";
 
     const SUPABASE_URL  = "https://yifkowufwjehwwnrnhvz.supabase.co";
@@ -107,7 +116,7 @@
     function fmtTime(ms){ const t=Math.max(0,Math.round(ms)); const m=Math.floor(t/60000), s=Math.floor((t%60000)/1000), cs=Math.floor((t%1000)/10); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`; }
     async function typeset(root){ if (window.MathJax && MathJax.typesetPromise){ try{ await MathJax.typesetPromise([root||document.body]); }catch(e){} } }
 
-    // === Обновлённый банк: 14 вопросов ===
+    // === Банк вопросов (14) ===
     const BANK = [
       { qid:"cyl_vol", topic:"цилиндр", stem:"Объём цилиндра равен",
         opts:["\\(\\pi r h^2\\)","\\(2\\pi r^2 h\\)","\\(\\pi r^2 h\\)","\\(\\tfrac13\\pi r^2 h\\)","\\(2\\pi r h\\)","\\(\\pi r(h + r)\\)","\\(\\tfrac{4}{3}\\pi r^3\\)","\\(2\\pi r^2 + 2\\pi r h\\)"],
@@ -154,32 +163,126 @@
     ];
     const BANK_HASH = fnv1aHash(JSON.stringify(BANK.map(q=>({qid:q.qid,stem:q.stem,opts:q.opts,correct:q.correct}))));
 
-    let rng=null, seed=0, questions=[], cur=0, answers=[], times=[], startStamp=null, rafId=null, sessionStartedAt=null;
+    // === Состояние сессии ===
+    let rng=null, seed=0;
+    let questions=[], answers=[], times=[];
+    let cur=0, startStamp=null, rafId=null, sessionStartedAt=null;
+    let selectedTopics = []; // массив базовых тем
+    let filteredBank = [];   // BANK после фильтра по темам
+    const recentQids = [];   // для анти-повтора
+    const RECENT_WINDOW = 3; // избегать повторов из последних 3, если возможно
 
+    // === RNG ===
     function seededRandom(){ return rng ? rng() : Math.random(); }
     function shuffle(a){ a=[...a]; for (let i=a.length-1;i>0;i--){ const j=Math.floor(seededRandom()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
     function sample(a,k){ return shuffle(a).slice(0,k); }
 
-    function materialize(bank){
-      return bank.map(q=>{
-        const all=[...Array(q.opts.length).keys()];
-        const wrong=all.filter(i=>i!==q.correct);
-        const picked=sample(wrong,3);
-        const choiceIdxs=shuffle([q.correct,...picked]);
-        const correctRendered=choiceIdxs.indexOf(q.correct);
-        return { qid:q.qid, topic:q.topic, stem:q.stem, opts:q.opts, choiceIdxs, correctRendered };
-      });
+    // === Выбор тем ===
+    function openTopicsModal(reset=false){
+      const m = document.getElementById("topicsModal");
+      m.classList.remove("hidden");
+      if (reset){
+        for (const cb of m.querySelectorAll('input[type="checkbox"]')) cb.checked = false;
+      }
+      updateSelectAllLabel();
+      validateTopicsSelection();
+    }
+    function closeTopicsModal(){ document.getElementById("topicsModal").classList.add("hidden"); }
+    function getSelectedTopicKeys(){
+      const res=[];
+      const m=document.getElementById("topicsModal");
+      for (const cb of m.querySelectorAll('input[type="checkbox"]')){
+        if (cb.checked) res.push(cb.value);
+      }
+      return res;
+    }
+    function setAllTopics(checked){
+      const m=document.getElementById("topicsModal");
+      for (const cb of m.querySelectorAll('input[type="checkbox"]')) cb.checked = !!checked;
+      updateSelectAllLabel();
+      validateTopicsSelection();
+    }
+    function selectAllToggle(){
+      const m=document.getElementById("topicsModal");
+      const cbs = [...m.querySelectorAll('input[type="checkbox"]')];
+      const allChecked = cbs.length>0 && cbs.every(cb => cb.checked);
+      setAllTopics(!allChecked); // если всё было выбрано — снять; иначе — выбрать все
+    }
+    function updateSelectAllLabel(){
+      const m=document.getElementById("topicsModal");
+      const cbs = [...m.querySelectorAll('input[type="checkbox"]')];
+      const allChecked = cbs.length>0 && cbs.every(cb => cb.checked);
+      const btn = document.getElementById("selectAll");
+      btn.textContent = allChecked ? "Сбросить все" : "Выбрать все";
+    }
+    function validateTopicsSelection(){
+      const keys = getSelectedTopicKeys();
+      const btn = document.getElementById("startBtn");
+      const warn = document.getElementById("topicsWarn");
+      btn.disabled = keys.length===0;
+      warn.textContent = keys.length===0 ? "Нужно выбрать хотя бы одну тему" : "";
+    }
+    function keysToTopics(keys){
+      const set = new Set();
+      for (const k of keys){
+        if (k==="circlebundle"){ set.add("круг"); set.add("окружность"); }
+        else set.add(k);
+      }
+      return Array.from(set);
     }
 
-    function prepare(){
+    // === Генерация вопросов ===
+    function materializeOne(base){
+      const all=[...Array(base.opts.length).keys()];
+      const wrong=all.filter(i=>i!==base.correct);
+      const picked=sample(wrong,3);
+      const choiceIdxs=shuffle([base.correct, ...picked]);
+      const correctRendered=choiceIdxs.indexOf(base.correct);
+      return { qid:base.qid, topic:base.topic, stem:base.stem, opts:base.opts, choiceIdxs, correctRendered };
+    }
+    function pickBaseQuestion(){
+      if (filteredBank.length===0) return null;
+      const candidates = filteredBank.filter(b => !recentQids.includes(b.qid));
+      const pool = candidates.length ? candidates : filteredBank;
+      const idx = Math.floor(seededRandom()*pool.length);
+      const base = pool[idx];
+      recentQids.push(base.qid);
+      if (recentQids.length > Math.min(RECENT_WINDOW, filteredBank.length-1)) recentQids.shift();
+      return base;
+    }
+    function generateNextQuestion(){
+      const base = pickBaseQuestion();
+      if (!base) return null;
+      return materializeOne(base);
+    }
+    function ensureQuestion(index){
+      while (questions.length <= index){
+        const mat = generateNextQuestion();
+        if (!mat) break;
+        questions.push(mat);
+        answers.push(null);
+        times.push(0);
+      }
+    }
+
+    // === Сессия ===
+    function startSession(withTopicsKeys){
       const buf=new Uint32Array(1); crypto.getRandomValues(buf); seed=buf[0]>>>0; rng=mulberry32(seed);
-      questions = materialize(shuffle(BANK)); cur=0;
-      answers=new Array(questions.length).fill(null);
-      times=new Array(questions.length).fill(0);
-      sessionStartedAt=new Date();
+      recentQids.length = 0;
+
+      selectedTopics = keysToTopics(withTopicsKeys);
+      filteredBank = BANK.filter(q => selectedTopics.includes(q.topic));
+      if (filteredBank.length===0) return;
+
+      questions = []; answers = []; times = [];
+      cur = 0; startStamp = null; rafId = null; sessionStartedAt = new Date();
+
+      closeTopicsModal(); // скрыть окно выбора тем
+      ensureQuestion(0);
       render(); startTimer();
     }
 
+    // === Таймеры ===
     function startTimer(){
       cancelAnimationFrame(rafId);
       let last=performance.now();
@@ -195,27 +298,35 @@
     }
     function stopTimer(){ cancelAnimationFrame(rafId); rafId=null; startStamp=null; }
 
+    // === Рендер и навигация ===
     async function render(){
-      const total=questions.length; const q=questions[cur];
-      document.getElementById("qnum").textContent = `Вопрос ${cur+1} / ${total}`;
-      document.querySelector(".progress > span").style.width = `${((cur)/total*100).toFixed(2)}%`;
+      const q=questions[cur];
+      document.getElementById("qnum").textContent = `Вопрос ${cur+1}`;
       document.querySelector(".qtext").innerHTML = q.stem;
       const box=document.querySelector(".opts"); box.innerHTML="";
       q.choiceIdxs.forEach((origIdx,i)=>{
-        const id=`opt_${cur}_${i}`;
         const div=document.createElement("label"); div.className="opt";
-        div.innerHTML=`<input type="radio" name="q${cur}" id="${id}" value="${i}"><span class="txt">${q.opts[origIdx]}</span>`;
+        div.innerHTML=`<input type="radio" name="q${cur}" value="${i}"><span class="txt">${q.opts[origIdx]}</span>`;
         const input=div.querySelector("input");
         input.checked=(answers[cur]===i);
         input.addEventListener("change",e=>{ answers[cur]=Number(e.target.value); },{passive:true});
         box.appendChild(div);
       });
       document.getElementById("prev").disabled=(cur===0);
-      document.getElementById("next").disabled=(cur>=questions.length-1);
       await typeset(document.getElementById("quiz"));
     }
-    function goto(n){ if (n<0||n>=questions.length) return; cur=n; render(); }
+    function nextQ(){
+      if (cur === questions.length-1){
+        ensureQuestion(cur+1);
+      }
+      cur = Math.min(cur+1, questions.length-1);
+      render();
+    }
+    function prevQ(){
+      if (cur>0){ cur -= 1; render(); }
+    }
 
+    // === Очередь оффлайн ===
     function loadQueue(){ try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||"[]");}catch(e){return[];} }
     function saveQueue(a){ localStorage.setItem(QUEUE_KEY, JSON.stringify(a)); }
     async function trySendQueued(item){
@@ -231,10 +342,11 @@
       }
       if (changed) saveQueue(q); return q.length;
     }
-    function enqueueAttempt(transport,payload){
-      const q=loadQueue(); q.push({transport,payload,tries:0,nextTryAt:Date.now()}); saveQueue(q);
+    function enqueueAttempt(payload){
+      const q=loadQueue(); q.push({transport:"supabase", payload, tries:0, nextTryAt:Date.now()}); saveQueue(q);
     }
 
+    // === Отправка попытки ===
     async function sendToSupabase(payload){
       const url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(SUPABASE_TABLE)}`;
       const res = await fetch(url, {
@@ -254,6 +366,9 @@
         finished_at: new Date().toISOString(),
         score: correctCount, total: total, duration_ms: Math.round(totalMs),
         seed: seed|0, bank_hash: BANK_HASH, app_version: APP_VERSION,
+        mode: "infinite",
+        topics_selected: selectedTopics.slice(),
+        question_pool_size: filteredBank.length,
         ua: navigator.userAgent, page_url: location.href,
         answers: rows.map(r => ({
           qid:r.qid, topic:r.topic, idx:r.idx, stem:r.stem,
@@ -271,9 +386,9 @@
         const presented=q.choiceIdxs.map(k=>q.opts[k]), correctText=q.opts[q.choiceIdxs[q.correctRendered]], yourText=(sel==null)?"—":q.opts[q.choiceIdxs[sel]];
         rows.push({ idx:i, qid:q.qid, topic:q.topic, stem:q.stem, optionsPresented:presented, yourText, correctText, ok, time:times[i] });
       }
-      const totalMs=times.reduce((a,b)=>a+b,0), avgMs=totalMs/total;
+      const totalMs=times.reduce((a,b)=>a+b,0), avgMs=totalMs/Math.max(1,total);
       document.getElementById("quiz").classList.add("hidden"); document.getElementById("report").classList.remove("hidden");
-      document.getElementById("score").textContent = `${correctCount} из ${total} (${Math.round(100*correctCount/total)}%)`;
+      document.getElementById("score").textContent = `${correctCount} из ${total} (${Math.round(100*correctCount/Math.max(1,total))}%)`;
       document.getElementById("totaltime").textContent = fmtTime(totalMs); document.getElementById("avgtime").textContent = fmtTime(avgMs);
       const tbody=document.getElementById("tbody"); tbody.innerHTML="";
       rows.forEach(r=>{
@@ -282,21 +397,23 @@
         tbody.appendChild(tr);
       });
       const status=document.getElementById("sendstatus"); status.textContent="Сохранение результата…";
+
       let studentId=localStorage.getItem(STUDENT_KEY);
       if (!studentId){ const v=prompt("Введите ваш код/инициалы:"); if (v){ studentId=String(v).trim(); localStorage.setItem(STUDENT_KEY, studentId);} }
       const summary=buildSummary(rows, correctCount, total, totalMs); summary.student_id = studentId || "";
+      if (!summary.student_id){ status.textContent="Код ученика не указан — статистика не отправлена."; await typeset(document.getElementById("report")); return; }
       try{ await sendToSupabase(summary); status.textContent="✅ Отправлено"; }
-      catch(e){ enqueueAttempt("supabase", summary); status.textContent="⚠️ Нет сети или ошибка сервера — отправим позже."; }
+      catch(e){ enqueueAttempt(summary); status.textContent="⚠️ Нет сети или ошибка сервера — отправим позже."; }
       await typeset(document.getElementById("report"));
     }
 
     function restart(){
+      if (!confirm("Перезапустить и выбрать темы заново? Текущая попытка будет сброшена.")) return;
       document.getElementById("report").classList.add("hidden");
-      document.getElementById("quiz").classList.remove("hidden");
-      document.querySelector(".progress > span").style.width="0%";
-      times=times.map(()=>0); answers=answers.map(()=>null);
-      prepare();
+      document.getElementById("quiz").classList.add("hidden");
+      openTopicsModal(true);
     }
+
     function changeStudent(){
       const cur=localStorage.getItem(STUDENT_KEY)||"";
       const v=prompt("Введите код/инициалы ученика", cur);
@@ -305,30 +422,57 @@
       if (s) localStorage.setItem(STUDENT_KEY, s); else localStorage.removeItem(STUDENT_KEY);
     }
 
+    function changeTopics(){
+      if (!confirm("Сменить темы? Текущая попытка будет сброшена.")) return;
+      openTopicsModal(false);
+    }
+
     document.addEventListener("DOMContentLoaded", ()=>{
-      document.getElementById("next").addEventListener("click", ()=>goto(cur+1), {passive:true});
-      document.getElementById("prev").addEventListener("click", ()=>goto(cur-1), {passive:true});
+      // Кнопки навигации
+      document.getElementById("next").addEventListener("click", nextQ, {passive:true});
+      document.getElementById("prev").addEventListener("click", prevQ, {passive:true});
       document.getElementById("finish").addEventListener("click", finish, {passive:true});
       document.getElementById("restart").addEventListener("click", restart, {passive:true});
       document.getElementById("changeStudent").addEventListener("click", changeStudent, {passive:true});
+      document.getElementById("changeTopics").addEventListener("click", changeTopics, {passive:true});
+
+      // Модал выбора тем
+      document.getElementById("selectAll").addEventListener("click", selectAllToggle);
+      document.getElementById("startBtn").addEventListener("click", ()=>{
+        const keys = getSelectedTopicKeys();
+        if (!keys.length) return;
+        startSession(keys); // внутри скроется модалка
+        document.getElementById("quiz").classList.remove("hidden");
+      });
+      document.getElementById("topicsModal").addEventListener("change", (e)=>{
+        if (e.target.matches('input[type="checkbox"]')){
+          validateTopicsSelection();
+          updateSelectAllLabel(); // чтобы текст кнопки менялся, если пользователь вручную отметил/снял
+        }
+      });
+
       setInterval(flushQueue, 30000);
       flushQueue();
-      prepare();
+
+      openTopicsModal(true); // изначально ничто не выбрано
     });
   </script>
 </head>
 <body>
   <div class="wrap">
-    <div class="card" id="quiz">
-      <div class="row">
-        <h1 class="grow">Тренажер по формулам стереометрии</h1>
-        <button id="changeStudent" class="linklike tiny" title="Сменить ученика">Сменить ученика</button>
-      </div>
+    <!-- Header -->
+    <div class="row" style="margin-bottom:10px">
+      <h1 class="grow">Тренажер по формулам стереометрии</h1>
+      <button id="changeTopics" class="linklike head-mini" title="Сменить темы">Темы</button>
+      <button id="changeStudent" class="linklike head-mini" title="Сменить ученика">Сменить ученика</button>
+    </div>
+
+    <!-- Quiz Card -->
+    <div class="card hidden" id="quiz">
       <div class="row">
         <div id="qnum" class="grow"></div>
         <div class="timer">00:00.00</div>
       </div>
-      <div class="progress"><span></span></div>
 
       <div class="qtext"></div>
       <div class="opts"></div>
@@ -341,6 +485,7 @@
       </div>
     </div>
 
+    <!-- Report -->
     <div class="card hidden" id="report">
       <h1>Статистика</h1>
       <div class="row">
@@ -370,6 +515,30 @@
       <div class="tiny">Версия: <span id="ver"></span></div>
     </div>
   </div>
+
+  <!-- Modal: topics selection -->
+  <div id="topicsModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h1>Выберите темы</h1>
+      <div class="muted" style="margin:6px 0 8px">Можно выбрать от одной до всех тем</div>
+
+      <div class="chkrow"><input id="t1" type="checkbox" value="цилиндр"><label for="t1">Цилиндр</label></div>
+      <div class="chkrow"><input id="t2" type="checkbox" value="конус"><label for="t2">Конус</label></div>
+      <div class="chkrow"><input id="t3" type="checkbox" value="призма"><label for="t3">Призма</label></div>
+      <div class="chkrow"><input id="t4" type="checkbox" value="шар"><label for="t4">Шар</label></div>
+      <div class="chkrow"><input id="t5" type="checkbox" value="circlebundle"><label for="t5">Круг / Окружность</label></div>
+
+      <div id="topicsWarn" class="tiny" style="margin-top:6px;color:var(--bad)"></div>
+
+      <div class="btns" style="margin-top:14px">
+        <button id="selectAll" class="ghost" type="button">Выбрать все</button>
+        <div class="grow"></div>
+        <button id="startBtn" class="primary" type="button" disabled>Начать</button>
+      </div>
+      <div class="tiny muted" style="margin-top:8px">Изначально ничего не выбрано</div>
+    </div>
+  </div>
+
   <script>
     document.addEventListener("DOMContentLoaded", ()=>{
       const el=document.getElementById("ver"); if (el) el.textContent = APP_VERSION;
