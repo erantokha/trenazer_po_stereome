@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Админка — Тренажер по формулам стереометрии</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --text:#e7eaf0; --muted:#9aa3b2;
+    --accent:#4da3ff; --good:#38d39f; --bad:#ff6b6b; --warn:#ffb65a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:1px solid #232835;border-radius:16px;padding:16px;
+        box-shadow:0 8px 20px rgba(0,0,0,.22)}
+  h1{margin:0 0 10px;font-size:22px}
+  h2{margin:0 0 8px;font-size:18px;color:var(--muted)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .grow{flex:1}
+  input,button,select{
+    background:#11141a;border:1px solid #2a3140;color:var(--text);
+    padding:10px;border-radius:12px;font-size:16px
+  }
+  button.primary{background:var(--accent);border-color:transparent;color:#07131f;cursor:pointer}
+  button.linklike{background:transparent;border:none;color:var(--accent);cursor:pointer;padding:6px 8px}
+  .muted{color:var(--muted)} .ok{color:var(--good)} .no{color:var(--bad)} .warn{color:var(--warn)}
+  .info{font-size:14px;color:var(--muted);margin-top:6px}
+  .table-wrap{overflow:auto;border:1px solid #232835;border-radius:12px;margin-top:10px}
+  table{width:100%;border-collapse:collapse;min-width:900px}
+  th,td{border-bottom:1px solid #232835;padding:10px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--card)}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #2a3140}
+  .flexcol{display:flex;flex-direction:column;gap:8px}
+  .hidden{display:none}
+  @media (max-width:600px){
+    .wrap{padding:12px}
+    h1{font-size:20px}
+    input,button,select{font-size:15px}
+    table{min-width:760px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card" id="authCard">
+    <h1>Вход для преподавателя</h1>
+    <div class="row">
+      <input id="email" type="email" placeholder="Ваш e‑mail" style="min-width:260px" />
+      <button id="sendLink" class="primary">Получить magic‑link</button>
+      <div class="grow"></div>
+      <span class="muted">После входа ваш e‑mail должен быть в таблице <code>teacher_emails</code>.</span>
+    </div>
+    <div id="authMsg" class="info"></div>
+  </div>
+
+  <div class="card hidden" id="adminCard">
+    <div class="row">
+      <h1 class="grow">Статистика по ученику</h1>
+      <div id="userEmail" class="badge"></div>
+      <button id="signOut" class="linklike">Выйти</button>
+    </div>
+
+    <div class="row" style="margin-top:8px">
+      <input id="studentId" placeholder="Код/инициалы ученика" style="min-width:220px" />
+      <button id="loadBtn" class="primary">Загрузить</button>
+      <button id="exportBtn">Экспорт CSV</button>
+      <div class="grow"></div>
+      <button id="recentBtn">Показать последних учеников</button>
+    </div>
+    <div id="status" class="info"></div>
+
+    <div id="recentPanel" class="info hidden" style="margin-top:8px"></div>
+
+    <div id="statsBox" class="flexcol" style="margin-top:12px">
+      <div id="summary" class="muted"></div>
+      <div class="table-wrap">
+        <table id="statsTable">
+          <thead>
+            <tr>
+              <th>Тема</th>
+              <th>Вопрос</th>
+              <th>Всего: ✅/❌</th>
+              <th>Последние 10: ✅/❌</th>
+              <th>Среднее время (посл.10)</th>
+              <th>Точность (посл.10)</th>
+              <th>Последняя попытка</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- Конфиг Supabase ----
+const SUPABASE_URL  = "https://yifkowufwjehwwnrnhvz.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZmtvd3Vmd2plaHd3bnJuaHZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyNDAzODksImV4cCI6MjA3NjgxNjM4OX0.EG2Bj3892hUBXjoDc4LYFtz28Q7_uDtGd-UJXOmcmac";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ---- UI helpers ----
+const $ = (s,root=document)=>root.querySelector(s);
+function fmtMs(ms){
+  const t = Math.max(0, Math.round(ms));
+  const m = Math.floor(t/60000), s = Math.floor((t%60000)/1000);
+  const cs = Math.floor((t%1000)/10);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+}
+function toCsv(rows){
+  const escape = (v)=>{
+    if (v==null) return "";
+    const s = String(v).replace(/"/g,'""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  };
+  const header = Object.keys(rows[0]||{});
+  const lines = [header.map(escape).join(",")];
+  for (const r of rows) lines.push(header.map(k=>escape(r[k])).join(","));
+  return lines.join("\n");
+}
+function downloadFile(name, content, type="text/csv"){
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+// ---- Auth ----
+async function checkSession(){
+  const { data:{session} } = await supabase.auth.getSession();
+  if (session?.user){
+    // Проверим, что e-mail есть в teacher_emails
+    const email = session.user.email || "";
+    const { data, error } = await supabase.from("teacher_emails").select("*").eq("email", email).maybeSingle();
+    if (error){
+      $("#authMsg").textContent = "Ошибка проверки прав: " + (error.message || error.code || "unknown");
+      $("#authCard").classList.remove("hidden");
+      $("#adminCard").classList.add("hidden");
+      return;
+    }
+    if (!data){
+      $("#authMsg").innerHTML = "Ваш e‑mail не найден в списке преподавателей (<code>teacher_emails</code>). Обратитесь к администратору.";
+      $("#authCard").classList.remove("hidden");
+      $("#adminCard").classList.add("hidden");
+      return;
+    }
+    $("#userEmail").textContent = email;
+    $("#authCard").classList.add("hidden");
+    $("#adminCard").classList.remove("hidden");
+  }else{
+    $("#authCard").classList.remove("hidden");
+    $("#adminCard").classList.add("hidden");
+  }
+}
+
+$("#sendLink").addEventListener("click", async ()=>{
+  const email = $("#email").value.trim();
+  if (!email){ $("#authMsg").textContent = "Введите e‑mail"; return; }
+  $("#authMsg").textContent = "Отправляем ссылку…";
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options:{ emailRedirectTo: location.href }
+  });
+  $("#authMsg").textContent = error ? ("Ошибка: "+error.message) : "Письмо отправлено. Откройте ссылку из письма на этом устройстве.";
+});
+
+$("#signOut").addEventListener("click", async ()=>{
+  await supabase.auth.signOut();
+  $("#adminCard").classList.add("hidden");
+  $("#authCard").classList.remove("hidden");
+});
+
+supabase.auth.onAuthStateChange((_event, _session)=>{ checkSession(); });
+checkSession();
+
+// ---- Загрузка последних учеников ----
+$("#recentBtn").addEventListener("click", async ()=>{
+  $("#recentPanel").classList.remove("hidden");
+  $("#recentPanel").textContent = "Загрузка…";
+  const { data, error } = await supabase
+    .from("attempts")
+    .select("student_id, finished_at")
+    .order("finished_at", {ascending:false})
+    .limit(500);
+  if (error){ $("#recentPanel").textContent = "Ошибка: " + error.message; return; }
+  const uniq = [];
+  for (const row of data){
+    if (!row.student_id) continue;
+    if (!uniq.includes(row.student_id)) uniq.push(row.student_id);
+    if (uniq.length>=30) break;
+  }
+  $("#recentPanel").innerHTML = uniq.map(s=>`<button class="linklike" data-stu="${s}">${s}</button>`).join(" • ");
+  $("#recentPanel").addEventListener("click", (e)=>{
+    const b = e.target.closest("button[data-stu]");
+    if (b){ $("#studentId").value = b.dataset.stu; }
+  }, { once:true });
+});
+
+// ---- Загрузка статистики по ученику ----
+$("#loadBtn").addEventListener("click", loadStats);
+$("#exportBtn").addEventListener("click", exportCsv);
+
+let lastLoadedRows = []; // для экспорта
+
+async function loadStats(){
+  const stu = $("#studentId").value.trim();
+  if (!stu){ $("#status").textContent = "Введите код ученика"; return; }
+  $("#status").textContent = "Загружаем ответы ученика…";
+  const { data, error } = await supabase
+    .from("attempt_answers")
+    .select("student_id, finished_at, qid, topic, stem, selected, correct, ok, time_ms")
+    .eq("student_id", stu)
+    .order("finished_at", {ascending:false})
+    .limit(5000);
+  if (error){ $("#status").innerHTML = `<span class="warn">Ошибка:</span> ${error.message}`; return; }
+  lastLoadedRows = data || [];
+  $("#summary").textContent = `Всего ответов: ${lastLoadedRows.length}`;
+
+  // Группировка по qid
+  const byQ = new Map();
+  for (const r of lastLoadedRows){
+    if (!byQ.has(r.qid)) byQ.set(r.qid, []);
+    byQ.get(r.qid).push(r);
+  }
+
+  // Рендер
+  const tbody = $("#statsTable tbody");
+  tbody.innerHTML = "";
+  const rows = [];
+  for (const [qid, arr] of byQ.entries()){
+    // arr уже отсортирован по finished_at у всего набора (desc)
+    const total = arr.length;
+    const totalOk = arr.filter(x=>x.ok).length;
+    const totalBad = total - totalOk;
+    const last10 = arr.slice(0,10);
+    const last10Ok = last10.filter(x=>x.ok).length;
+    const last10Bad = last10.length - last10Ok;
+    const avg10 = last10.reduce((a,b)=>a+(b.time_ms||0),0) / (last10.length||1);
+    const stem = arr[0]?.stem || qid;
+    const topic = arr[0]?.topic || "";
+    const lastAt = arr[0]?.finished_at ? new Date(arr[0].finished_at) : null;
+    const acc10 = Math.round(100 * (last10Ok / (last10.length||1)));
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${topic}</td>
+      <td>${stem}</td>
+      <td><span class="ok">${totalOk}</span> / <span class="no">${totalBad}</span> (${total})</td>
+      <td><span class="ok">${last10Ok}</span> / <span class="no">${last10Bad}</span></td>
+      <td>${fmtMs(avg10 || 0)}</td>
+      <td>${acc10}%</td>
+      <td>${lastAt ? lastAt.toLocaleString() : "—"}</td>
+    `;
+    tbody.appendChild(tr);
+
+    rows.push({topic, stem, total_ok:totalOk, total_bad:totalBad, total,
+               last10_ok:last10Ok, last10_bad:last10Bad,
+               avg_time_last10_ms: Math.round(avg10), accuracy_last10_percent: acc10,
+               last_attempt_at: lastAt ? lastAt.toISOString() : ""});
+  }
+
+  $("#status").textContent = rows.length ? `Вопросов: ${rows.length}` : "Нет данных для этого ученика.";
+}
+
+function exportCsv(){
+  if (!lastLoadedRows.length){ $("#status").textContent = "Нечего экспортировать — сначала загрузите данные."; return; }
+  // Экспорт по-строчно (каждый ответ)
+  const rows = lastLoadedRows.map(r=>({
+    student_id: r.student_id,
+    finished_at: r.finished_at,
+    qid: r.qid, topic: r.topic, stem: r.stem,
+    selected: r.selected, correct: r.correct,
+    ok: r.ok, time_ms: r.time_ms
+  }));
+  const csv = toCsv(rows);
+  const stu = $("#studentId").value.trim() || "student";
+  downloadFile(`answers_${stu}.csv`, csv, "text/csv");
+}
+</script>
+</body>
+</html>
