@@ -67,17 +67,17 @@
   </style>
   <script>
     // ========= Конфиг статистики =========
-    const APP_VERSION = "mobile-plain-stats@1.0.0";
+    const APP_VERSION = "mobile-plain-stats@1.0.1-noreturn";
     const STATS_MODE = "supabase"; // "supabase" | "custom" | "none"
 
-    // --- ВАШ Supabase (Settings → API) ---
+    // --- Ваш Supabase (Settings → API) ---
     const SUPABASE_URL  = "https://yifkowufwjehwwnrnhvz.supabase.co";
     const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZmtvd3Vmd2plaHd3bnJuaHZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyNDAzODksImV4cCI6MjA3NjgxNjM4OX0.EG2Bj3892hUBXjoDc4LYFtz28Q7_uDtGd-UJXOmcmac";
     const SUPABASE_TABLE = "attempts";
 
     // для собственного сервера (будущее)
-    const CUSTOM_ENDPOINT = ""; // "https://your.server/api/attempts"
-    const CUSTOM_AUTH = "";     // "Bearer <token>" при необходимости
+    const CUSTOM_ENDPOINT = "";
+    const CUSTOM_AUTH = "";
 
     const QUEUE_KEY = "pendingAttemptsV1";
     const STUDENT_KEY = "studentIdV1";
@@ -85,11 +85,9 @@
     function isSupabaseConfigured(){
       return Boolean(SUPABASE_URL && SUPABASE_ANON);
     }
-    // =====================================
 
     // ========= Утилиты =========
     const $ = (sel, root=document) => root.querySelector(sel);
-    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
     function uuidv4(){
       const buf = new Uint8Array(16);
@@ -128,9 +126,8 @@
       const cs = Math.floor((t%1000)/10);
       return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
     };
-    // ===========================
 
-    // ========= Банк вопросов (12), с QID и темой =========
+    // ========= Банк вопросов =========
     const BANK = [
       { qid:"cyl_vol", topic:"цилиндр", stem:"Объём цилиндра равен",
         opts:["πrh²","2πr²h","πr²h","1/3·πr²h","2πrh","πr(h + r)","4/3·πr³","2πr² + 2πrh"],
@@ -139,7 +136,7 @@
         opts:["2πrh + 2πr²","πr²h","2πrh","πr(h + r)","πr² + πrh","4πr²","2πr(h + 2r)","πr² + 2πr"],
         correct:0 },
       { qid:"cyl_vol_from_S", topic:"цилиндр", stem:"Объём цилиндра через площадь основания Sосн:",
-        opts:["V = Sосн·h","V = 2Sосн·h","V = 1/3·Sосн·h","V = Sосн·2h","V = Sосн/(2h)","V = 4/3·Sосн·h","V = Sосн·πh","V = Sосн + h"],
+        opts:["V = Sосн·h","V = 2Sосн·h","V = 1/3·Сосн·h","V = Sосн·2h","V = Sосн/(2h)","V = 4/3·Sосн·h","V = Sосн·πh","V = Sосн + h"],
         correct:0 },
       { qid:"cyl_area_from_S", topic:"цилиндр", stem:"Полная площадь поверхности цилиндра через Sосн:",
         opts:["Sполн = 2Sосн + 2πrh","Sполн = Sосн + 2πrh","Sполн = 2Sосн + πrh","Sполн = 2Sосн + Pосн·h","Sполн = Sосн + πr²","Sполн = 4Sосн","Sполн = 2Sосн + 2πr²h","Sполн = 2πr(h + r)"],
@@ -163,7 +160,7 @@
         opts:["2πr²","3πr²","4πr²","4/3·πr³","πr²h","2πrh","πrl + πr²","8πr²"],
         correct:2 },
       { qid:"sphere_vol", topic:"шар", stem:"Объём шара равен",
-        opts:["4πr³","4/3·πr³","1/3·πr³","πr³","πr²h","2/3·πr³","2πr³","4πr²"],
+        opts:["4πr³","4/3·πr³","1/3·πr³","πр³","πr²h","2/3·πr³","2πr³","4πr²"],
         correct:1 },
       { qid:"sphere_pair", topic:"шар", stem:"Выберите единственную верную пару (S, V) для шара:",
         opts:["S = 2πr², V = 4/3·πr³","S = 3πr², V = πr³","S = 4πr², V = 4/3·πr³","S = 4πr², V = πр³","S = 2πr², V = 2/3·πr³","S = 4πr², V = 2πr³","S = πr², V = 4/3·πr³","S = 4πr², V = 1/3·πr³"],
@@ -174,9 +171,7 @@
     // ========= RNG helpers using seed =========
     let rng = null;
     let seed = 0;
-    function seededRandom(){
-      return rng ? rng() : Math.random();
-    }
+    function seededRandom(){ return rng ? rng() : Math.random(); }
     function shuffle(arr) {
       const a = [...arr];
       for (let i=a.length-1;i>0;i--){
@@ -186,7 +181,6 @@
       return a;
     }
     function sample(arr,k){ return shuffle(arr).slice(0,k); }
-    // ==========================================
 
     // ========= Состояние квиза =========
     let questions = [];
@@ -212,12 +206,10 @@
     }
 
     function prepare() {
-      // инициализация seed для воспроизводимости
       const buf = new Uint32Array(1);
       crypto.getRandomValues(buf);
       seed = buf[0] >>> 0;
       rng = mulberry32(seed);
-
       questions = materialize(shuffle(BANK));
       cur = 0;
       answers = new Array(questions.length).fill(null);
@@ -233,14 +225,12 @@
       const step = () => {
         const now = performance.now();
         const dt = now - last;
-        if (startStamp !== null){
-          times[cur] += dt;
-        }
+        if (startStamp !== null) times[cur] += dt;
         last = now;
         if (!step._acc) step._acc = 0;
         step._acc += dt;
         if (step._acc >= 200){
-          $(".timer").textContent = fmtTime(times[cur]);
+          document.querySelector(".timer").textContent = fmtTime(times[cur]);
           step._acc = 0;
         }
         rafId = requestAnimationFrame(step);
@@ -258,11 +248,11 @@
     function render() {
       const total = questions.length;
       const q = questions[cur];
-      $("#qnum").textContent = `Вопрос ${cur+1} / ${total}`;
-      $(".progress > span").style.width = `${((cur)/total*100).toFixed(2)}%`;
+      document.getElementById("qnum").textContent = `Вопрос ${cur+1} / ${total}`;
+      document.querySelector(".progress > span").style.width = `${((cur)/total*100).toFixed(2)}%`;
 
-      $(".qtext").textContent = q.stem;
-      const box = $(".opts");
+      document.querySelector(".qtext").textContent = q.stem;
+      const box = document.querySelector(".opts");
       box.innerHTML = "";
       q.choiceIdxs.forEach((origIdx, i) => {
         const id = `opt_${cur}_${i}`;
@@ -281,8 +271,8 @@
         box.appendChild(div);
       });
 
-      $("#prev").disabled = (cur===0);
-      $("#next").disabled = (cur>=questions.length-1);
+      document.getElementById("prev").disabled = (cur===0);
+      document.getElementById("next").disabled = (cur>=questions.length-1);
     }
 
     function goto(n) {
@@ -293,26 +283,17 @@
 
     // ========= Очередь оффлайн =========
     function loadQueue(){
-      try{
-        return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
-      }catch(e){ return []; }
+      try{ return JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]"); }
+      catch(e){ return []; }
     }
-    function saveQueue(arr){
-      localStorage.setItem(QUEUE_KEY, JSON.stringify(arr));
-    }
+    function saveQueue(arr){ localStorage.setItem(QUEUE_KEY, JSON.stringify(arr)); }
     async function trySendQueued(item){
       try{
-        if (item.transport === "supabase"){
-          await sendToSupabase(item.payload);
-        } else if (item.transport === "custom"){
-          await sendToCustom(item.payload);
-        } else {
-          throw new Error("Unknown transport");
-        }
+        if (item.transport === "supabase")      await sendToSupabase(item.payload);
+        else if (item.transport === "custom")   await sendToCustom(item.payload);
+        else throw new Error("Unknown transport");
         return true;
-      }catch(e){
-        return false;
-      }
+      }catch(e){ return false; }
     }
     async function flushQueue(){
       const now = Date.now();
@@ -322,13 +303,11 @@
         const item = q[i];
         if (item.nextTryAt && item.nextTryAt > now) continue;
         const ok = await trySendQueued(item);
-        if (ok){
-          q.splice(i,1); i--; changed = true;
-        }else{
+        if (ok){ q.splice(i,1); i--; changed = true; }
+        else {
           item.tries = (item.tries||0)+1;
           const backoff = Math.min(600000, 2000 * Math.pow(2, Math.min(item.tries, 7)));
-          item.nextTryAt = now + backoff;
-          changed = true;
+          item.nextTryAt = now + backoff; changed = true;
         }
       }
       if (changed) saveQueue(q);
@@ -339,7 +318,6 @@
       q.push({transport, payload, tries:0, nextTryAt:Date.now()});
       saveQueue(q);
     }
-    // ===================================
 
     // ========= Отправка попытки =========
     async function sendToSupabase(payload){
@@ -350,15 +328,15 @@
           "Content-Type": "application/json",
           apikey: SUPABASE_ANON,
           Authorization: `Bearer ${SUPABASE_ANON}`,
-          Prefer: "return=representation"
+          Prefer: "return=minimal"  // важно: не требуем SELECT
         },
         body: JSON.stringify(payload)
       });
       if (!res.ok){
-        const txt = await res.text().catch(()=>String(res.status));
+        const txt = await res.text().catch(()=>`HTTP ${res.status}`);
         throw new Error(txt || `HTTP ${res.status}`);
       }
-      return res.json();
+      return true;
     }
     async function sendToCustom(payload){
       const res = await fetch(CUSTOM_ENDPOINT, {
@@ -370,10 +348,10 @@
         body: JSON.stringify(payload)
       });
       if (!res.ok){
-        const txt = await res.text().catch(()=>String(res.status));
+        const txt = await res.text().catch(()=>`HTTP ${res.status}`);
         throw new Error(txt || `HTTP ${res.status}`);
       }
-      return res.json();
+      return true;
     }
     async function sendAttempt(transport, payload){
       if (transport === "supabase"){
@@ -386,7 +364,6 @@
         throw new Error("Stats disabled");
       }
     }
-    // =====================================
 
     function buildSummary(rows, correctCount, total, totalMs){
       return {
@@ -438,14 +415,13 @@
       const totalMs = times.reduce((a,b)=>a+b,0);
       const avgMs = totalMs/total;
 
-      // UI отчёта
-      $("#quiz").classList.add("hidden");
-      $("#report").classList.remove("hidden");
-      $("#score").textContent = `${correctCount} из ${total} (${Math.round(100*correctCount/total)}%)`;
-      $("#totaltime").textContent = fmtTime(totalMs);
-      $("#avgtime").textContent = fmtTime(avgMs);
+      document.getElementById("quiz").classList.add("hidden");
+      document.getElementById("report").classList.remove("hidden");
+      document.getElementById("score").textContent = `${correctCount} из ${total} (${Math.round(100*correctCount/total)}%)`;
+      document.getElementById("totaltime").textContent = fmtTime(totalMs);
+      document.getElementById("avgtime").textContent = fmtTime(avgMs);
 
-      const tbody = $("#tbody");
+      const tbody = document.getElementById("tbody");
       tbody.innerHTML = "";
       rows.forEach((r) => {
         const tr = document.createElement("tr");
@@ -460,16 +436,12 @@
         tbody.appendChild(tr);
       });
 
-      // Статус отправки
-      const status = $("#sendstatus");
+      const status = document.getElementById("sendstatus");
       status.textContent = "Сохранение результата…";
 
-      // Конфиг транспорта
       let transport = STATS_MODE;
       if (transport === "supabase" && !isSupabaseConfigured()) transport = "none";
-      if (transport === "custom" && !CUSTOM_ENDPOINT) transport = "none";
 
-      // Учебный код ученика
       let studentId = localStorage.getItem(STUDENT_KEY);
       if (!studentId){
         studentId = prompt("Введите ваш код/инициалы:");
@@ -501,12 +473,11 @@
     }
 
     function restart() {
-      $("#report").classList.add("hidden");
-      $("#quiz").classList.remove("hidden");
-      $(".progress > span").style.width = "0%";
+      document.getElementById("report").classList.add("hidden");
+      document.getElementById("quiz").classList.remove("hidden");
+      document.querySelector(".progress > span").style.width = "0%";
       times = new Array(questions.length).fill(0);
       answers = new Array(questions.length).fill(null);
-      // новый seed и порядок
       prepare();
     }
 
@@ -520,13 +491,12 @@
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
-      $("#next").addEventListener("click", ()=>goto(cur+1), {passive:true});
-      $("#prev").addEventListener("click", ()=>goto(cur-1), {passive:true});
-      $("#finish").addEventListener("click", finish, {passive:true});
-      $("#restart").addEventListener("click", restart, {passive:true});
-      $("#changeStudent").addEventListener("click", changeStudent, {passive:true});
+      document.getElementById("next").addEventListener("click", ()=>goto(cur+1), {passive:true});
+      document.getElementById("prev").addEventListener("click", ()=>goto(cur-1), {passive:true});
+      document.getElementById("finish").addEventListener("click", finish, {passive:true});
+      document.getElementById("restart").addEventListener("click", restart, {passive:true});
+      document.getElementById("changeStudent").addEventListener("click", changeStudent, {passive:true});
 
-      // Фоновая отправка очереди
       flushQueue();
       setInterval(flushQueue, 30000);
 
@@ -587,12 +557,5 @@
       <div class="tiny">Версия: <span id="ver"></span></div>
     </div>
   </div>
-  <script>
-    // показать версию в отчёте
-    document.addEventListener("DOMContentLoaded", ()=>{
-      const el = document.getElementById("ver");
-      if (el) el.textContent = APP_VERSION + " · банк " + BANK_HASH.slice(0,8);
-    });
-  </script>
 </body>
 </html>
