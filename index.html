@@ -82,7 +82,7 @@
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 
   <script>
-    const APP_VERSION = "mobile-mathjax@1.0.0";
+    const APP_VERSION = "mobile-mathjax@1.1.0-14q";
     const STATS_MODE = "supabase";
 
     const SUPABASE_URL  = "https://yifkowufwjehwwnrnhvz.supabase.co";
@@ -107,6 +107,7 @@
     function fmtTime(ms){ const t=Math.max(0,Math.round(ms)); const m=Math.floor(t/60000), s=Math.floor((t%60000)/1000), cs=Math.floor((t%1000)/10); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`; }
     async function typeset(root){ if (window.MathJax && MathJax.typesetPromise){ try{ await MathJax.typesetPromise([root||document.body]); }catch(e){} } }
 
+    // === Обновлённый банк: 14 вопросов ===
     const BANK = [
       { qid:"cyl_vol", topic:"цилиндр", stem:"Объём цилиндра равен",
         opts:["\\(\\pi r h^2\\)","\\(2\\pi r^2 h\\)","\\(\\pi r^2 h\\)","\\(\\tfrac13\\pi r^2 h\\)","\\(2\\pi r h\\)","\\(\\pi r(h + r)\\)","\\(\\tfrac{4}{3}\\pi r^3\\)","\\(2\\pi r^2 + 2\\pi r h\\)"],
@@ -114,11 +115,11 @@
       { qid:"cyl_area_total", topic:"цилиндр", stem:"Полная площадь поверхности цилиндра равна",
         opts:["\\(2\\pi r h + 2\\pi r^2\\)","\\(\\pi r^2 h\\)","\\(2\\pi r h\\)","\\(\\pi r(h + r)\\)","\\(\\pi r^2 + \\pi r h\\)","\\(4\\pi r^2\\)","\\(2\\pi r(h + 2r)\\)","\\(\\pi r^2 + 2\\pi r\\)"],
         correct:0 },
-      { qid:"cyl_vol_from_S", topic:"цилиндр", stem:"Объём цилиндра через площадь основания \\(S_{\\text{осн}}\\):",
-        opts:["\\(V = S_{\\text{осн}}\\cdot h\\)","\\(V = 2S_{\\text{осн}}\\cdot h\\)","\\(V = \\tfrac13 S_{\\text{осн}}\\cdot h\\)","\\(V = S_{\\text{осн}}\\cdot 2h\\)","\\(V = \\tfrac{S_{\\text{осн}}}{2h}\\)","\\(V = \\tfrac{4}{3}S_{\\text{осн}}\\cdot h\\)","\\(V = S_{\\text{осн}}\\cdot \\pi h\\)","\\(V = S_{\\text{осн}} + h\\)"],
+      { qid:"cyl_vol_formula", topic:"цилиндр", stem:"Формула объёма цилиндра:",
+        opts:["\\(V=\\pi r^2\\cdot h\\)","\\(V=2\\pi r^2\\cdot h\\)","\\(V=\\tfrac13\\,\\pi r^2\\cdot h\\)","\\(V=\\pi r^2\\cdot 2h\\)","\\(V=\\dfrac{\\pi r^2}{2h}\\)","\\(V=\\tfrac{4}{3}\\,\\pi r^2\\cdot h\\)","\\(V=\\pi r^2\\cdot \\pi h\\)","\\(V=\\pi r^2+h\\)"],
         correct:0 },
-      { qid:"cyl_area_from_S", topic:"цилиндр", stem:"Полная площадь поверхности цилиндра через \\(S_{\\text{осн}}\\):",
-        opts:["\\(S_{\\text{полн}}=2S_{\\text{осн}}+2\\pi r h\\)","\\(S_{\\text{полн}}=S_{\\text{осн}}+2\\pi r h\\)","\\(S_{\\text{полн}}=2S_{\\text{осн}}+\\pi r h\\)","\\(S_{\\text{полн}}=2S_{\\text{осн}}+P_{\\text{осн}}\\cdot h\\)","\\(S_{\\text{полн}}=S_{\\text{осн}}+\\pi r^2\\)","\\(S_{\\text{полн}}=4S_{\\text{осн}}\\)","\\(S_{\\text{полн}}=2S_{\\text{осн}}+2\\pi r^2 h\\)","\\(S_{\\text{полн}}=2\\pi r(h+r)\\)"],
+      { qid:"cyl_area_formula", topic:"цилиндр", stem:"Формула полной площади поверхности цилиндра:",
+        opts:["\\(S_{\\text{полн}}=2\\pi r^2+2\\pi r h\\)","\\(S_{\\text{полн}}=\\pi r^2+2\\pi r h\\)","\\(S_{\\text{полн}}=2\\pi r^2+\\pi r h\\)","\\(S_{\\text{полн}}=2\\pi r^2+P_{\\text{осн}}\\cdot h\\)","\\(S_{\\text{полн}}=\\pi r^2\\)","\\(S_{\\text{полн}}=4\\pi r^2\\)","\\(S_{\\text{полн}}=2\\pi r^2+2\\pi r^2 h\\)","\\(S_{\\text{полн}}=\\pi r(h+r)\\)"],
         correct:0 },
       { qid:"cone_vol", topic:"конус", stem:"Объём конуса равен",
         opts:["\\(\\pi r^2 h\\)","\\(\\tfrac12\\pi r^2 h\\)","\\(\\tfrac13\\pi r^2 h\\)","\\(\\tfrac23\\pi r^2 h\\)","\\(\\pi r l\\)","\\(\\tfrac{4}{3}\\pi r^3\\)","\\(\\pi r(h+l)\\)","\\(2\\pi r h\\)"],
@@ -126,11 +127,11 @@
       { qid:"cone_area_total", topic:"конус", stem:"Полная площадь поверхности конуса равна",
         opts:["\\(\\pi r l + \\pi r^2\\)","\\(2\\pi r l + \\pi r^2\\)","\\(\\pi r(l+h)\\)","\\(\\pi r^2 h\\)","\\(2\\pi r(h+r)\\)","\\(\\pi r^2 + 2\\pi r h\\)","\\(\\pi r(l + r/2)\\)","\\(4\\pi r^2\\)"],
         correct:0 },
-      { qid:"cone_vol_from_S", topic:"конус", stem:"Объём конуса через площадь основания \\(S_{\\text{осн}}\\):",
-        opts:["\\(V = S_{\\text{осн}}\\cdot h\\)","\\(V = \\tfrac12 S_{\\text{осн}}\\cdot h\\)","\\(V = \\tfrac13 S_{\\text{осн}}\\cdot h\\)","\\(V = \\tfrac23 S_{\\text{осн}}\\cdot h\\)","\\(V = S_{\\text{осн}}\\cdot 2h\\)","\\(V = \\tfrac{S_{\\text{осн}}}{3h}\\)","\\(V = \\tfrac{4}{3} S_{\\text{осн}}\\cdot h\\)","\\(V = S_{\\text{осн}} + h\\)"],
+      { qid:"cone_vol_formula", topic:"конус", stem:"Формула объёма конуса:",
+        opts:["\\(V=\\pi r^2\\cdot h\\)","\\(V=\\tfrac12\\,\\pi r^2\\cdot h\\)","\\(V=\\tfrac13\\,\\pi r^2\\cdot h\\)","\\(V=\\tfrac23\\,\\pi r^2\\cdot h\\)","\\(V=\\pi r^2\\cdot 2h\\)","\\(V=\\dfrac{\\pi r^2}{3h}\\)","\\(V=\\tfrac{4}{3}\\,\\pi r^2\\cdot h\\)","\\(V=\\pi r^2+h\\)"],
         correct:2 },
-      { qid:"cone_area_from_Sl", topic:"конус", stem:"Полная площадь поверхности конуса через \\(S_{\\text{осн}}\\) и \\(l\\):",
-        opts:["\\(S_{\\text{полн}}=S_{\\text{осн}}+\\pi r l\\)","\\(S_{\\text{полн}}=2S_{\\text{осн}}+\\pi r l\\)","\\(S_{\\text{полн}}=S_{\\text{осн}}+2\\pi r l\\)","\\(S_{\\text{полн}}=\\pi r l\\)","\\(S_{\\text{полн}}=S_{\\text{осн}}+\\pi r^2 l\\)","\\(S_{\\text{полн}}=2\\pi r(h+r)\\)","\\(S_{\\text{полн}}=S_{\\text{осн}}+\\pi r h\\)","\\(S_{\\text{полн}}=4\\pi r^2\\)"],
+      { qid:"cone_area_formula", topic:"конус", stem:"Формула полной площади поверхности конуса:",
+        opts:["\\(S_{\\text{полн}}=\\pi r^2+\\pi r l\\)","\\(S_{\\text{полн}}=2\\pi r^2+\\pi r l\\)","\\(S_{\\text{полн}}=\\pi r^2+2\\pi r l\\)","\\(S_{\\text{полн}}=\\pi r l\\)","\\(S_{\\text{полн}}=\\pi r^2 l\\)","\\(S_{\\text{полн}}=2\\pi r(h+r)\\)","\\(S_{\\text{полн}}=\\pi r h+\\pi r^2\\)","\\(S_{\\text{полн}}=4\\pi r^2\\)"],
         correct:0 },
       { qid:"prism_vol", topic:"призма", stem:"Объём прямой треугольной призмы равен",
         opts:["\\(V=P_{\\text{осн}}\\cdot h\\)","\\(V=S_{\\text{осн}}\\cdot h\\)","\\(V=\\tfrac12 P_{\\text{осн}}\\cdot h\\)","\\(V=2S_{\\text{осн}}\\cdot h\\)","\\(V=\\tfrac{S_{\\text{осн}}}{2h}\\)","\\(V=(S_{\\text{осн}}+P_{\\text{осн}})\\cdot h\\)","\\(\\pi r^2 h\\)","\\(\\tfrac{4}{3}\\pi r^3\\)"],
@@ -143,7 +144,13 @@
         correct:1 },
       { qid:"sphere_pair", topic:"шар", stem:"Выберите единственную верную пару \\((S,V)\\) для шара:",
         opts:["\\(S=2\\pi r^2,\\;V=\\tfrac{4}{3}\\pi r^3\\)","\\(S=3\\pi r^2,\\;V=\\pi r^3\\)","\\(S=4\\pi r^2,\\;V=\\tfrac{4}{3}\\pi r^3\\)","\\(S=4\\pi r^2,\\;V=\\pi r^3\\)","\\(S=2\\pi r^2,\\;V=\\tfrac23\\pi r^3\\)","\\(S=4\\pi r^2,\\;V=2\\pi r^3\\)","\\(S=\\pi r^2,\\;V=\\tfrac{4}{3}\\pi r^3\\)","\\(S=4\\pi r^2,\\;V=\\tfrac13\\pi r^3\\)"],
-        correct:2 }
+        correct:2 },
+      { qid:"circle_area", topic:"круг", stem:"Площадь круга равна",
+        opts:["\\(\\pi r^2\\)","\\(2\\pi r^2\\)","\\(\\pi r\\)","\\(2\\pi r\\)","\\(\\tfrac{4}{3}\\pi r^3\\)","\\(\\pi r^2 h\\)","\\(\\pi r l\\)","\\(4\\pi r^2\\)"],
+        correct:0 },
+      { qid:"circle_circumference", topic:"окружность", stem:"Длина окружности равна",
+        opts:["\\(2\\pi r\\)","\\(\\pi r^2\\)","\\(4\\pi r\\)","\\(\\pi r\\)","\\(\\tfrac12\\pi r\\)","\\(2\\pi r^2\\)","\\(\\tfrac{4}{3}\\pi r^3\\)","\\(\\pi r^2 h\\)"],
+        correct:0 }
     ];
     const BANK_HASH = fnv1aHash(JSON.stringify(BANK.map(q=>({qid:q.qid,stem:q.stem,opts:q.opts,correct:q.correct}))));
 
@@ -181,7 +188,7 @@
         if (startStamp!==null) times[cur]+=dt;
         last=now;
         if (!step._acc) step._acc=0; step._acc+=dt;
-        if (step._acc>=200){ $(".timer").textContent = fmtTime(times[cur]); step._acc=0; }
+        if (step._acc>=200){ document.querySelector(".timer").textContent = fmtTime(times[cur]); step._acc=0; }
         rafId=requestAnimationFrame(step);
       };
       startStamp=performance.now(); rafId=requestAnimationFrame(step);
@@ -190,10 +197,10 @@
 
     async function render(){
       const total=questions.length; const q=questions[cur];
-      $("#qnum").textContent = `Вопрос ${cur+1} / ${total}`;
-      $(".progress > span").style.width = `${((cur)/total*100).toFixed(2)}%`;
-      $(".qtext").innerHTML = q.stem;
-      const box=$(".opts"); box.innerHTML="";
+      document.getElementById("qnum").textContent = `Вопрос ${cur+1} / ${total}`;
+      document.querySelector(".progress > span").style.width = `${((cur)/total*100).toFixed(2)}%`;
+      document.querySelector(".qtext").innerHTML = q.stem;
+      const box=document.querySelector(".opts"); box.innerHTML="";
       q.choiceIdxs.forEach((origIdx,i)=>{
         const id=`opt_${cur}_${i}`;
         const div=document.createElement("label"); div.className="opt";
@@ -203,20 +210,16 @@
         input.addEventListener("change",e=>{ answers[cur]=Number(e.target.value); },{passive:true});
         box.appendChild(div);
       });
-      $("#prev").disabled=(cur===0); $("#next").disabled=(cur>=questions.length-1);
-      await typeset($("#quiz"));
+      document.getElementById("prev").disabled=(cur===0);
+      document.getElementById("next").disabled=(cur>=questions.length-1);
+      await typeset(document.getElementById("quiz"));
     }
     function goto(n){ if (n<0||n>=questions.length) return; cur=n; render(); }
 
     function loadQueue(){ try{return JSON.parse(localStorage.getItem(QUEUE_KEY)||"[]");}catch(e){return[];} }
     function saveQueue(a){ localStorage.setItem(QUEUE_KEY, JSON.stringify(a)); }
     async function trySendQueued(item){
-      try{
-        if (item.transport==="supabase") await sendToSupabase(item.payload);
-        else if (item.transport==="custom") await sendToCustom(item.payload);
-        else throw new Error("Unknown transport");
-        return true;
-      }catch(e){ return false; }
+      try{ await sendToSupabase(item.payload); return true; }catch(e){ return false; }
     }
     async function flushQueue(){
       const now=Date.now(); let q=loadQueue(); let changed=false;
@@ -269,39 +272,48 @@
         rows.push({ idx:i, qid:q.qid, topic:q.topic, stem:q.stem, optionsPresented:presented, yourText, correctText, ok, time:times[i] });
       }
       const totalMs=times.reduce((a,b)=>a+b,0), avgMs=totalMs/total;
-      $("#quiz").classList.add("hidden"); $("#report").classList.remove("hidden");
-      $("#score").textContent = `${correctCount} из ${total} (${Math.round(100*correctCount/total)}%)`;
-      $("#totaltime").textContent = fmtTime(totalMs); $("#avgtime").textContent = fmtTime(avgMs);
-      const tbody=$("#tbody"); tbody.innerHTML="";
+      document.getElementById("quiz").classList.add("hidden"); document.getElementById("report").classList.remove("hidden");
+      document.getElementById("score").textContent = `${correctCount} из ${total} (${Math.round(100*correctCount/total)}%)`;
+      document.getElementById("totaltime").textContent = fmtTime(totalMs); document.getElementById("avgtime").textContent = fmtTime(avgMs);
+      const tbody=document.getElementById("tbody"); tbody.innerHTML="";
       rows.forEach(r=>{
         const tr=document.createElement("tr");
         tr.innerHTML=`<td>${r.idx+1}</td><td>${r.stem}</td><td>${r.yourText}</td><td>${r.ok?"<span class='ok'>верно</span>":"<span class='no'>ошибка</span>"}</td><td class="timer">${fmtTime(r.time)}</td><td>${r.correctText}</td>`;
         tbody.appendChild(tr);
       });
-      const status=$("#sendstatus"); status.textContent="Сохранение результата…";
-      let transport=STATS_MODE;
-      if (transport==="supabase" && !(SUPABASE_URL && SUPABASE_ANON)) transport="none";
+      const status=document.getElementById("sendstatus"); status.textContent="Сохранение результата…";
       let studentId=localStorage.getItem(STUDENT_KEY);
       if (!studentId){ const v=prompt("Введите ваш код/инициалы:"); if (v){ studentId=String(v).trim(); localStorage.setItem(STUDENT_KEY, studentId);} }
       const summary=buildSummary(rows, correctCount, total, totalMs); summary.student_id = studentId || "";
-      if (transport==="none"){ status.textContent="Сохранение не настроено."; await typeset($("#report")); return; }
-      if (!summary.student_id){ status.textContent="Код ученика не указан — статистика не отправлена."; await typeset($("#report")); return; }
       try{ await sendToSupabase(summary); status.textContent="✅ Отправлено"; }
-      catch(e){ enqueueAttempt(transport, summary); status.textContent="⚠️ Нет сети или ошибка сервера — отправим позже."; }
-      await typeset($("#report"));
+      catch(e){ enqueueAttempt("supabase", summary); status.textContent="⚠️ Нет сети или ошибка сервера — отправим позже."; }
+      await typeset(document.getElementById("report"));
     }
 
-    function restart(){ $("#report").classList.add("hidden"); $("#quiz").classList.remove("hidden"); $(".progress > span").style.width="0%"; times=times.map(()=>0); answers=answers.map(()=>null); prepare(); }
-    function changeStudent(){ const cur=localStorage.getItem(STUDENT_KEY)||""; const v=prompt("Введите код/инициалы ученика", cur); if (v===null) return; const s=String(v).trim(); if (s) localStorage.setItem(STUDENT_KEY, s); else localStorage.removeItem(STUDENT_KEY); }
+    function restart(){
+      document.getElementById("report").classList.add("hidden");
+      document.getElementById("quiz").classList.remove("hidden");
+      document.querySelector(".progress > span").style.width="0%";
+      times=times.map(()=>0); answers=answers.map(()=>null);
+      prepare();
+    }
+    function changeStudent(){
+      const cur=localStorage.getItem(STUDENT_KEY)||"";
+      const v=prompt("Введите код/инициалы ученика", cur);
+      if (v===null) return;
+      const s=String(v).trim();
+      if (s) localStorage.setItem(STUDENT_KEY, s); else localStorage.removeItem(STUDENT_KEY);
+    }
 
     document.addEventListener("DOMContentLoaded", ()=>{
-      $("#next").addEventListener("click", ()=>goto(cur+1), {passive:true});
-      $("#prev").addEventListener("click", ()=>goto(cur-1), {passive:true});
-      $("#finish").addEventListener("click", finish, {passive:true});
-      $("#restart").addEventListener("click", restart, {passive:true});
-      $("#changeStudent").addEventListener("click", changeStudent, {passive:true});
+      document.getElementById("next").addEventListener("click", ()=>goto(cur+1), {passive:true});
+      document.getElementById("prev").addEventListener("click", ()=>goto(cur-1), {passive:true});
+      document.getElementById("finish").addEventListener("click", finish, {passive:true});
+      document.getElementById("restart").addEventListener("click", restart, {passive:true});
+      document.getElementById("changeStudent").addEventListener("click", changeStudent, {passive:true});
       setInterval(flushQueue, 30000);
-      flushQueue(); prepare();
+      flushQueue();
+      prepare();
     });
   </script>
 </head>
